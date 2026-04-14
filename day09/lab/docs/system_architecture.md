@@ -13,7 +13,7 @@
 **Pattern đã chọn:** Supervisor-Worker  
 **Lý do chọn pattern này (thay vì single agent):**
 
-_________________
+Supervisor-Worker cho phép tách riêng phần điều phối route, tìm kiếm bằng chứng và tổng hợp câu trả lời. Cách này giúp trace rõ ràng hơn, dễ mở rộng MCP/tool và giảm rủi ro khi cần debug hoặc cập nhật từng phần.
 
 ---
 
@@ -22,7 +22,8 @@ _________________
 > Vẽ sơ đồ pipeline dưới dạng text, Mermaid diagram, hoặc ASCII art.
 > Yêu cầu tối thiểu: thể hiện rõ luồng từ input → supervisor → workers → output.
 
-**Ví dụ (ASCII art):**
+**Sơ đồ thực tế của nhóm:**
+
 ```
 User Request
      │
@@ -49,12 +50,6 @@ Retrieval Worker     Policy Tool Worker
          Output
 ```
 
-**Sơ đồ thực tế của nhóm:**
-
-```
-[NHÓM ĐIỀN VÀO ĐÂY]
-```
-
 ---
 
 ## 3. Vai trò từng thành phần
@@ -63,37 +58,37 @@ Retrieval Worker     Policy Tool Worker
 
 | Thuộc tính | Mô tả |
 |-----------|-------|
-| **Nhiệm vụ** | ___________________ |
-| **Input** | ___________________ |
+| **Nhiệm vụ** | Điều phối và lựa chọn worker dựa trên nội dung câu hỏi và đánh giá rủi ro. |
+| **Input** | Task từ user và state ban đầu (history, flags). |
 | **Output** | supervisor_route, route_reason, risk_high, needs_tool |
-| **Routing logic** | ___________________ |
-| **HITL condition** | ___________________ |
+| **Routing logic** | Policy/access keyword → policy_tool_worker; ticket/SLA keyword → retrieval_worker; else fallback retrieval. |
+| **HITL condition** | Nếu task chứa lỗi không rõ `err-` và risk_high, trigger human_review trước khi tiếp tục. |
 
 ### Retrieval Worker (`workers/retrieval.py`)
 
 | Thuộc tính | Mô tả |
 |-----------|-------|
-| **Nhiệm vụ** | ___________________ |
-| **Embedding model** | ___________________ |
-| **Top-k** | ___________________ |
-| **Stateless?** | Yes / No |
+| **Nhiệm vụ** | Tìm kiếm evidence phù hợp từ ChromaDB hoặc fallback local docs. |
+| **Embedding model** | `all-MiniLM-L6-v2` nếu có, hoặc OpenAI embeddings, nếu không thì random fallback. |
+| **Top-k** | 3 |
+| **Stateless?** | Yes |
 
 ### Policy Tool Worker (`workers/policy_tool.py`)
 
 | Thuộc tính | Mô tả |
 |-----------|-------|
-| **Nhiệm vụ** | ___________________ |
-| **MCP tools gọi** | ___________________ |
-| **Exception cases xử lý** | ___________________ |
+| **Nhiệm vụ** | Phân tích policy, nhận diện exceptions và gọi MCP tools khi cần thêm thông tin. |
+| **MCP tools gọi** | `search_kb`, `get_ticket_info`, `check_access_permission` |
+| **Exception cases xử lý** | Flash Sale refund, digital product/license, activated product, access control emergency, SLA ticket lookup. |
 
 ### Synthesis Worker (`workers/synthesis.py`)
 
 | Thuộc tính | Mô tả |
 |-----------|-------|
-| **LLM model** | ___________________ |
-| **Temperature** | ___________________ |
-| **Grounding strategy** | ___________________ |
-| **Abstain condition** | ___________________ |
+| **LLM model** | `gpt-4o-mini` if available, otherwise fallback generation logic. |
+| **Temperature** | 0.1 |
+| **Grounding strategy** | Dùng context từ `retrieved_chunks` và `policy_result`, chỉ trả lời theo tài liệu. |
+| **Abstain condition** | Nếu không có evidence hoặc insufficient info, trả về "Không có thông tin trong tài liệu". |
 
 ### MCP Server (`mcp_server.py`)
 
@@ -102,7 +97,7 @@ Retrieval Worker     Policy Tool Worker
 | search_kb | query, top_k | chunks, sources |
 | get_ticket_info | ticket_id | ticket details |
 | check_access_permission | access_level, requester_role | can_grant, approvers |
-| ___________________ | ___________________ | ___________________ |
+| create_ticket | priority, title, description | ticket_id, url, created_at, note |
 
 ---
 
@@ -120,7 +115,7 @@ Retrieval Worker     Policy Tool Worker
 | mcp_tools_used | list | Tool calls đã thực hiện | policy_tool ghi |
 | final_answer | str | Câu trả lời cuối | synthesis ghi |
 | confidence | float | Mức tin cậy | synthesis ghi |
-| ___________________ | ___________________ | ___________________ | ___________________ |
+| hitl_triggered | bool | Flag khi supervisor quyết định cần human review | supervisor ghi |
 
 ---
 
@@ -131,11 +126,11 @@ Retrieval Worker     Policy Tool Worker
 | Debug khi sai | Khó — không rõ lỗi ở đâu | Dễ hơn — test từng worker độc lập |
 | Thêm capability mới | Phải sửa toàn prompt | Thêm worker/MCP tool riêng |
 | Routing visibility | Không có | Có route_reason trong trace |
-| ___________________ | ___________________ | ___________________ |
+| Trace detail | Chỉ có output cuối | Có workers_called và mcp_tools_used cũng lưu lại |
 
 **Nhóm điền thêm quan sát từ thực tế lab:**
 
-_________________
+Supervisor-Worker giúp xác định nhanh worker nào xử lý query, nên debug multi-hop SLA + access request dễ hơn. Trace log rõ ràng giúp chứng minh pipeline chạy đúng theo routing pattern, không chỉ dựa vào output cuối.
 
 ---
 
@@ -143,6 +138,6 @@ _________________
 
 > Nhóm mô tả những điểm hạn chế của kiến trúc hiện tại.
 
-1. ___________________
-2. ___________________
-3. ___________________
+1. Fallback embedding và retrieval hiện tại có chất lượng không đồng đều khi ChromaDB chưa sẵn sàng. 
+2. Policy worker vẫn là rule-based, cần mở rộng bằng LLM hoặc thêm nhiều case policy hơn. 
+3. HITL node hiện chỉ auto-approve placeholder, cần thực hiện review thực tế khi triển khai sản phẩm. 
