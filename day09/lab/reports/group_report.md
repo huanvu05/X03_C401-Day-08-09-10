@@ -37,19 +37,24 @@ https://github.com/huanvu05/X03_C401-Day-08-09-10
 
 **Hệ thống tổng quan:**
 
-Nhóm xây dựng hệ thống Day 09 theo pattern Supervisor-Worker với 3 worker chính: `retrieval_worker`, `policy_tool_worker`, và `synthesis_worker`. `graph.py` giữ vai trò supervisor, nhận task đầu vào và quyết định route dựa trên keyword. `retrieval_worker` tìm evidence từ ChromaDB hoặc fallback local docs, `policy_tool_worker` kiểm tra chính sách và gọi MCP khi cần, còn `synthesis_worker` tổng hợp câu trả lời dựa trên context đã thu thập.
+Nhóm xây dựng Day 09 theo pattern Supervisor-Worker với 3 worker chính: `retrieval_worker`, `policy_tool_worker`, và `synthesis_worker`. `graph.py` làm supervisor, nhận task đầu vào và quyết định route dựa trên keyword logic. `retrieval_worker` thu thập evidence từ ChromaDB hoặc fallback local docs khi ChromaDB không khả dụng. `policy_tool_worker` áp dụng chính sách, gọi MCP khi cần, và `synthesis_worker` tổng hợp câu trả lời cuối cùng với thông tin evidence.
 
 **Routing logic cốt lõi:**
 > Mô tả logic supervisor dùng để quyết định route (keyword matching, LLM classifier, rule-based, v.v.)
 
-Supervisor dùng rule-based keyword matching, không dùng classifier. Nếu task chứa refund/flash sale/access/emergency thì route sang `policy_tool_worker`; nếu task chứa P1/SLA/ticket thì route sang `retrieval_worker`; với các câu multi-hop pha SLA + access thì hệ thống vẫn gọi retrieval trước rồi policy_tool để đảm bảo có evidence. `route_reason` được ghi rõ trong state để trace.
+Supervisor dùng rule-based keyword matching trong `graph.py` để quyết định route. Vì vậy:
+- task chứa `refund`, `flash sale`, `access` hoặc `emergency` ưu tiên route vào `policy_tool_worker`
+- task chứa `P1`, `SLA`, `ticket` ưu tiên route vào `retrieval_worker`
+- task multi-hop SLA + access vẫn có thể gọi `retrieval_worker` trước rồi `policy_tool_worker` sau để bảo đảm evidence đủ.
+
+`route_reason` được ghi vào trace để giải thích quyết định. Ví dụ `gq02` trong `artifacts/grading_run.jsonl` có `route_reason: "task contains policy/access keyword"` và `supervisor_route: "policy_tool_worker"`.
 
 **MCP tools đã tích hợp:**
 > Liệt kê tools đã implement và 1 ví dụ trace có gọi MCP tool.
 
-- `search_kb`: gọi khi `policy_tool_worker` cần thêm evidence từ KB; trace ghi `mcp_tools_used` có `tool=search_kb`.
-- `get_ticket_info`: dùng cho câu hỏi liên quan ticket P1; trace lưu `ticket_info` trong `policy_result`.
-- `check_access_permission`: kiểm tra access level và emergency override cho trường hợp cấp quyền.
+- `search_kb`: `policy_tool_worker` dùng khi cần tìm chứng cứ chính sách trong KB. Trace `gq02`, `gq04`, `gq10` đều có `mcp_tools_used: ["search_kb"]`.
+- `get_ticket_info`: `gq03` và `gq09` gọi để lấy thông tin ticket P1 và tăng độ chính xác quyết định.
+- `check_access_permission`: `gq03` và `gq09` gọi khi nhiệm vụ yêu cầu access level/emergency override.
 
 ---
 
@@ -62,72 +67,68 @@ Supervisor dùng rule-based keyword matching, không dùng classifier. Nếu tas
 
 **Bối cảnh vấn đề:**
 
-Nhóm cần tách pipeline Day 08 sang Day 09 nhưng vẫn đảm bảo trace rõ ràng và worker có thể test độc lập. Một phương án là dùng LLM phân loại intent, phương án còn lại là dùng rule-based từ khóa đơn giản để giữ route giải thích được.
+Nhóm cần chuyển sang Day 09 với multi-agent mà vẫn giữ trace giải thích được. Lựa chọn là: dùng LLM classifier để phân loại intent hoặc duy trì route rule-based và giữ supervisor nhẹ.
 
 **Các phương án đã cân nhắc:**
 
 | Phương án | Ưu điểm | Nhược điểm |
 |-----------|---------|-----------|
-| LLM classifier | Có thể xử lý ý định phức tạp hơn và multi-hop mềm dẻo | Khó debug, dễ thay đổi route mà trace không giải thích trực tiếp |
-| Rule-based keyword | Route giải thích rõ, trace dễ đọc và code đơn giản | Có thể bỏ sót biến thể văn bản nếu từ khóa không đủ đủ phủ |
+| LLM classifier | Có thể xử lý intent phức tạp, nhiều ngữ cảnh | Khó debug, route không rõ ràng trong trace |
+| Rule-based keyword | Trace giải thích được, dễ sửa lỗi | Cần mở rộng keyword để tránh bỏ sót |
 
 **Phương án đã chọn và lý do:**
 
-Nhóm chọn rule-based keyword để ưu tiên trace và debugability. Với mục tiêu Day 09 ta cần chứng minh khả năng route rõ ràng và gọi worker đúng, nên việc `route_reason` được ghi ra là giá trị lớn hơn so với classifier có thể làm mờ cơ chế. Đây cũng là lý do chúng tôi giữ logic supervisor trong `graph.py` thay vì đẩy tất cả vào LLM.
+Nhóm chọn rule-based keyword để tối ưu tính minh bạch và debugability. Trace của Day 09 cần chứng minh rõ worker nào chịu trách nhiệm, nên `route_reason` và `supervisor_route` phải rõ ràng. Khi chạy actual grading log, những câu như `gq01` và `gq09` cho phép chúng tôi xác định nhanh worker chậm/fast bằng cách xem trace mà không cần inspect output toàn diện.
 
 **Bằng chứng từ trace/code:**
-> Dẫn chứng cụ thể (VD: route_reason trong trace, đoạn code, v.v.)
+
+Trong `graph.py`, state được gán:
 
 ```
 state["route_reason"] = "task contains policy/access keyword"
 state["supervisor_route"] = "policy_tool_worker"
 ```
 
-Trace ví dụ `artifacts/traces/run_20260414_120111.json` ghi rõ `supervisor_route` và `workers_called`, giúp xác định ngay worker chịu trách nhiệm.
+Trace thực tế `artifacts/grading_run.jsonl` ghi `workers_called` và `mcp_tools_used`, ví dụ `gq03` có `workers_called: ["retrieval_worker", "policy_tool_worker", "synthesis_worker"]`, cho thấy supervisor rule-based vẫn hỗ trợ multi-hop rõ ràng.
 
 ---
 
 ## 3. Kết quả grading questions (150–200 từ)
 
-> Sau khi chạy pipeline với grading_questions.json (public lúc 17:00):
-> - Nhóm đạt bao nhiêu điểm raw?
-> - Câu nào pipeline xử lý tốt nhất?
-> - Câu nào pipeline fail hoặc gặp khó khăn?
+**Kết quả thực tế:**
 
-**Tổng điểm raw ước tính:** Chưa có grading log chính thức do file `grading_questions.json` chưa được public hoặc chưa chạy trong thời điểm báo cáo này.
+Chúng tôi đã chạy grading questions và lưu 10 câu trong `artifacts/grading_run.jsonl`. Mỗi câu có trace thực tế, gồm `supervisor_route`, `workers_called`, `mcp_tools_used`, `confidence`, và `latency_ms`.
 
-**Câu pipeline xử lý tốt nhất:**
-- ID: chưa có cụ thể — nhưng qua test nội bộ, hệ thống ghi nhận `policy_tool_worker` xử lý tốt các câu refund/Flash Sale với `exceptions_found` rõ ràng.
+Do rubric raw score chưa có trong artifact, chúng tôi chưa thể báo điểm số chính xác. Tuy nhiên, qua trace có thể rút ra rằng pipeline đã xử lý tốt các câu refund/Flash Sale và multi-hop P1/access.
 
-**Câu pipeline fail hoặc partial:**
-- ID: chưa rõ do chưa có grading log — quan sát trace cho thấy các câu multi-hop cần cả SLA và access đôi khi route sang `policy_tool_worker` trước nhưng vẫn cần retrieval bổ trợ.
-  Root cause: thiếu evidence hoặc rule-based route thiếu từ khóa phủ hết.
+**Câu xử lý tốt nhất:**
+- `gq02`, `gq04`, `gq10` là các câu chính sách refund. Tất cả đều route vào `policy_tool_worker` và gọi `search_kb`, với `confidence` 0.95.
 
-**Câu gq07 (abstain):** Nhóm xử lý thế nào?
+**Câu multi-hop tốt:**
+- `gq03` và `gq09` cần cả SLA và access. Trace cho thấy hai câu này đều gọi `retrieval_worker` trước rồi `policy_tool_worker`, và sử dụng `get_ticket_info` cùng `check_access_permission`.
 
-Ngay cả khi không có grading question chính thức, hệ thống được thiết kế để abstain rõ ràng khi `retrieved_chunks` rỗng. `synthesis_worker` trả về "Không có thông tin trong tài liệu" với confidence thấp 0.1 thay vì cố gắng suy đoán.
-
-**Câu gq09 (multi-hop khó nhất):** Trace ghi được 2 workers không? Kết quả thế nào?
-
-Thiết kế hiện tại đảm bảo multi-hop SLA + access sẽ gọi `retrieval_worker` và `policy_tool_worker`. Trong ví dụ test, `workers_called` có đủ `retrieval_worker` và `policy_tool_worker` trước khi vào `synthesis_worker`, nên trace hỗ trợ xác nhận multi-hop đã được xét qua hai luồng.
+**Câu gặp hạn chế:**
+- `gq01`, `gq05`, `gq07` chỉ dùng `retrieval_worker` và `synthesis_worker`. Điều này cho thấy phần routing cần mở rộng keyword hoặc logic để phân biệt rõ hơn các tình huống ticket/SLA với access/emergency.
 
 ---
 
 ## 4. So sánh Day 08 vs Day 09 — Điều nhóm quan sát được (150–200 từ)
 
-> Dựa vào `docs/single_vs_multi_comparison.md` — trích kết quả thực tế.
+**Metric thay đổi rõ nhất:**
 
-**Metric thay đổi rõ nhất (có số liệu):**
+`artifacts/eval_report.json` cho thấy Day 09 có `avg_confidence` 0.907 và `avg_latency_ms` 17020. Multi-agent cũng dùng MCP cho 55% câu hỏi (`mcp_usage_rate: 11/20`) và chỉ 5% cần HITL (`hitl_rate: 1/20`).
 
-Day 09 có `avg_confidence` 0.907 và `mcp_usage_rate` 55% theo `artifacts/eval_report.json`. So với Day 08 không có log confidence, Day 09 rõ ràng hơn về chất lượng và trace. Tuy nhiên latency tăng lên `17020ms` do multi-step.
+**Điều bất ngờ:**
 
-**Điều nhóm bất ngờ nhất khi chuyển từ single sang multi-agent:**
+Multi-agent giúp chúng tôi thấy rõ ràng câu nào cần policy/MCP và câu nào chỉ cần retrieval. Trace `workers_called` và `mcp_tools_used` tạo ra một layer debug mà Day 08 không có.
 
-Multi-agent không chỉ giúp debug nhanh hơn, mà còn cho thấy ngay câu nào cần MCP và câu nào chỉ cần retrieval. Việc trace lưu `workers_called` và `mcp_tools_used` làm rõ trách nhiệm của từng phần.
+**Khi multi-agent không giúp ích:**
 
-**Trường hợp multi-agent KHÔNG giúp ích hoặc làm chậm hệ thống:**
+Các câu đơn giản vẫn bị chậm hơn do overhead điều phối. `avg_latency_ms` 17020ms phản ánh chi phí của việc thêm supervisor và worker chaining, nhất là với câu chỉ cần một document như `gq01` hoặc `gq07`.
 
-Đối với các câu đơn giản chỉ cần một document, multi-agent vẫn chậm hơn do thêm bước điều phối và kiểm tra policy. `avg_latency_ms` tăng một lượng đáng kể, điều này là chi phí đổi lấy khả năng trace và extensibility.
+**Top sources:**
+
+`eval_report.json` liệt kê top sources là `access_control_sop.txt`, `sla_p1_2026.txt`, `policy_refund_v4.txt`, `it_helpdesk_faq.txt`, và `hr_leave_policy.txt`, cho thấy Day 09 cần kết hợp policy và quy trình nội bộ.
 
 ---
 
@@ -146,25 +147,14 @@ Multi-agent không chỉ giúp debug nhanh hơn, mà còn cho thấy ngay câu n
 
 **Điều nhóm làm tốt:**
 
-Chúng tôi phối hợp rõ ràng theo sprint: một người chịu trách nhiệm phần core routing/retrieval, người kia chịu trách nhiệm phần MCP, policy và trace. Việc có `route_reason` và `mcp_tools_used` trong trace giúp cả nhóm đồng thuận về design.
+Nhóm chia nhiệm vụ rõ ràng giữa routing/retrieval và MCP/policy. Việc lưu `workers_called` và `mcp_tools_used` giúp cả nhóm review trace dễ dàng và tìm ra nguyên nhân vấn đề nhanh chóng.
 
-**Điều nhóm làm chưa tốt hoặc gặp vấn đề về phối hợp:**
+**Điểm cần cải thiện:**
 
-Ban đầu chưa thống nhất đủ các keyword routing, dẫn đến một số query multi-hop bị route sai. Cần thêm check kỹ hơn cho trường hợp SLA + access để tránh mất trace.
-
-**Nếu làm lại, nhóm sẽ thay đổi gì trong cách tổ chức?**
-
-Nhóm sẽ dành thêm thời gian review sớm hơn cho `supervisor_node` và `policy_tool` để thống nhất routing keywords, đồng thời phân chia test cases rõ ràng cho từng worker ngay từ sprint 1.
+Ban đầu chưa thống nhất đầy đủ keyword route cho multi-hop SLA + access. `gq03`/`gq09` cho thấy chúng tôi cần bổ sung các rule cho các task yêu cầu thông tin ticket và access cùng lúc.
 
 ---
 
 ## 6. Nếu có thêm 1 ngày, nhóm sẽ làm gì? (50–100 từ)
 
-> 1–2 cải tiến cụ thể với lý do có bằng chứng từ trace/scorecard.
-
-Nhóm sẽ thêm hai cải tiến: hoàn thiện grading run với `grading_questions.json` để có điểm raw cụ thể, và nâng cấp `policy_tool.py` thành LLM-assisted để xử lý exception phức tạp hơn. Cùng lúc đó sẽ cải thiện fallback retrieval bằng chỉ số similarity cao hơn thay vì random embeddings.
-
----
-
-*File này lưu tại: `reports/group_report.md`*  
-*Commit sau 18:00 được phép theo SCORING.md*
+Nhóm sẽ mở rộng supervisor rule để xử lý tốt hơn các tình huống multi-hop SLA + access, và thêm bước đánh giá raw score dựa trên `grading_run.jsonl` để biết chính xác câu nào pass/fail. Đồng thời chúng tôi sẽ tối ưu fallback retrieval để dùng similarity document thay vì keyword khi `retrieved_chunks` rỗng.
