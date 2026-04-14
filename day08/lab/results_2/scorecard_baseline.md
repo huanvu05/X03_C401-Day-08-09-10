@@ -1,14 +1,14 @@
 # Scorecard: baseline_dense
-Generated: 2026-04-13 17:28
+Generated: 2026-04-14 16:15
 
 ## Summary
 
 | Metric | Average Score |
 |--------|--------------|
-| Faithfulness | 4.20/5 |
-| Relevance | 4.20/5 |
-| Context Recall | 4.44/5 |
-| Completeness | 2.50/5 |
+| Faithfulness | 4.60/5 |
+| Relevance | 5.00/5 |
+| Context Recall | 5.00/5 |
+| Completeness | 2.90/5 |
 
 ## Per-Question Results
 
@@ -22,5 +22,5 @@ Generated: 2026-04-13 17:28
 | gq06 | Cross-Document | 5 | 5 | 5 | 5 | The answer accurately reflects the process for gra |
 | gq07 | Insufficient Context | 3 | 5 | None | 1 | Abstain nhưng có context → retrieval có thể lỗi |
 | gq08 | HR Policy | 5 | 5 | 5 | 3 | The answer accurately reflects the requirements fo |
-| gq09 | IT Helpdesk | 5 | 1 | 5 | 1 | The answer accurately reflects the information pro |
-| gq10 | Refund | 1 | 1 | 0 | 1 | Lỗi gọi LLM Evaluator: Error code: 429 - {'error': |
+| gq09 | IT Helpdesk | 5 | 5 | 5 | 3 | The answer accurately reflects the information pro |
+| gq10 | Refund | 5 | 5 | 5 | 3 | The answer accurately reflects the information pro |

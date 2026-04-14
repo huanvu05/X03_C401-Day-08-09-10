@@ -5,7 +5,7 @@
 
 > **Hướng dẫn:** Ghi lại ít nhất **3 quyết định routing** thực tế từ trace của nhóm.
 > Không ghi giả định — phải từ trace thật (`artifacts/traces/`).
-> 
+>
 > Mỗi entry phải có: task đầu vào → worker được chọn → route_reason → kết quả thực tế.
 
 ---
@@ -15,9 +15,9 @@
 **Task đầu vào:**
 > _________________
 
-**Worker được chọn:** `___________________`  
-**Route reason (từ trace):** `___________________`  
-**MCP tools được gọi:** _________________  
+**Worker được chọn:** `___________________`
+**Route reason (từ trace):** `___________________`
+**MCP tools được gọi:** _________________
 **Workers called sequence:** _________________
 
 **Kết quả thực tế:**
