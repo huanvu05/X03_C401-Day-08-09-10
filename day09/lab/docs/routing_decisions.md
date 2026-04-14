@@ -91,8 +91,9 @@ _________________
 > Trong số X câu nhóm đã chạy, bao nhiêu câu supervisor route đúng?
 
 - Câu route đúng: 8 / 10 
-- Câu route sai (đã sửa bằng cách nào?): 2 câu (gq06, gq08). Hai câu này hỏi về "quy định đổi mật khẩu" và "điều kiện làm remote"  (bản chất là policy), nhưng bị đẩy vào retrieval_worker với lý do default route.
-  - Cách sửa: Cần mở rộng bộ từ khóa (thêm "quy định", "điều kiện", "mật khẩu") trong rule-based classifier, hoặc nâng cấp lên dùng LLM Intent Classifier thay vì chỉ dùng keyword matching.
+- Câu route sai (đã sửa bằng cách nào?): 
+   - Câu trigger default route:2 câu (gq06, gq08). Hai câu này hỏi về "quy định đổi mật khẩu" và "điều kiện làm remote"  (bản chất là policy), nhưng bị đẩy vào retrieval_worker với lý do default route.
+   - Cách sửa: Cần mở rộng bộ từ khóa (thêm "quy định", "điều kiện", "mật khẩu") trong rule-based classifier, hoặc nâng cấp lên dùng LLM Intent Classifier thay vì chỉ dùng keyword matching.
 - Câu trigger HITL: 0 (Thuộc tính hitl_triggered luôn là false do confidence đang fix cứng ở 0.75).
 
 ### Lesson Learned về Routing
