@@ -112,5 +112,5 @@ _________________
 - Các route_reason hiện tại (như default route hay task contains policy/access keyword ) mới chỉ dừng ở mức báo cáo rule nào được thỏa mãn, chưa đủ chi tiết để debug.
 
 - Cách cải tiến format:
- - Sửa từ: task contains policy/access keyword thành: Rule match: policy_tool_worker | Trigger keyword matched: "hoàn tiền" hoặc Trigger keyword matched: "access".
- - Điều này sẽ giúp nhóm biết chính xác từ nào trong câu hỏi đã bẻ hướng routing, từ đó dễ tuning bộ keyword hơn.
+  - Sửa từ: task contains policy/access keyword thành: Rule match: policy_tool_worker | Trigger keyword matched: "hoàn tiền" hoặc Trigger keyword matched: "access".
+  - Điều này sẽ giúp nhóm biết chính xác từ nào trong câu hỏi đã bẻ hướng routing, từ đó dễ tuning bộ keyword hơn.
