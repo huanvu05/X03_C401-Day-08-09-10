@@ -1,4 +1,4 @@
-# Báo cáo cá nhân — Lab Day 10 (Thực tế thực hiện)
+# Báo cáo cá nhân — Lab Day 10
 
 **Họ và tên:** Hoàng Quang Thắng
 **Vai trò:** Ingestion & Quality Owner (Nhóm X03)
