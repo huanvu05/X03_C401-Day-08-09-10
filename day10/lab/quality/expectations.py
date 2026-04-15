@@ -114,3 +114,57 @@ def run_expectations(cleaned_rows: List[Dict[str, Any]]) -> Tuple[List[Expectati
 
     halt = any(not r.passed and r.severity == "halt" for r in results)
     return results, halt
+
+    # E7: không duplicate (doc_id + chunk_text)
+    seen = set()
+    duplicates = []
+    for r in cleaned_rows:
+        key = (r.get("doc_id"), r.get("chunk_text"))
+        if key in seen:
+            duplicates.append(r)
+        seen.add(key)
+
+    ok7 = len(duplicates) == 0
+    results.append(
+        ExpectationResult(
+            "no_duplicate_doc_chunk",
+            ok7,
+            "halt",
+            f"duplicates={len(duplicates)}",
+        )
+    )
+
+    # E8: không chứa ký tự HTML hoặc rác
+    bad_chars = [
+        r for r in cleaned_rows
+        if re.search(r"<[^>]+>|\\n|\\t", (r.get("chunk_text") or ""))
+    ]
+
+    ok8 = len(bad_chars) == 0
+    results.append(
+        ExpectationResult(
+            "no_html_or_escape_chars",
+            ok8,
+            "warn",
+            f"bad_rows={len(bad_chars)}",
+        )
+    )
+
+    # E9: doc_id phải thuộc whitelist
+    valid_doc_ids = {
+        "policy_refund_v4",
+        "hr_leave_policy",
+        "policy_shipping",
+    }
+
+    invalid = [r for r in cleaned_rows if r.get("doc_id") not in valid_doc_ids]
+
+    ok9 = len(invalid) == 0
+    results.append(
+        ExpectationResult(
+            "doc_id_in_whitelist",
+            ok9,
+            "halt",
+            f"invalid_doc_ids={len(invalid)}",
+        )
+    )
