@@ -4,8 +4,8 @@
 **Thành viên:**
 | Tên | Vai trò (Day 10) | Email |
 |-----|------------------|-------|
-| Admin | Ingestion & Quality Owner | admin@example.com |
-| X03_Member | Embed & Docs Owner | x03@example.com |
+| Admin | Ingestion & Quality Owner | hqt0810@gmail.com |
+| X03_Member | Embed & Docs Owner | huanv3596@gmail.com |
 
 **Ngày nộp:** 2026-04-15  
 **Repo:** https://github.com/huanvu05/X03_C401-Day-08-09-10  
