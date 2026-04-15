@@ -55,7 +55,7 @@ Pipeline này đóng vai trò là tầng **Data Ingestion** cho Agent của Day 
 
 ## 5. Rủi ro đã biết
 
-- **Schema Drift:** File CSV đầu vào thay đổi tên cột khiến bước Ingest bị lỗi.
+- **Logic Ordering Risk:** Các quy tắc làm sạch mới nếu đặt không đúng vị trí trong vòng lặp (như việc append vào cleaned trước khi lọc) có thể khiến dữ liệu rác vẫn lọt vào Vector Store. (Đã sửa lỗi này).
 - **Expectation Bias:** Các bộ kiểm tra không bao quát hết các kịch bản dữ liệu xấu thực tế dẫn đến "garbage in, garbage out".
 - **ChromaDB Lock:** Nếu có nhiều process cùng ghi vào database một lúc có thể gây xung đột.
 - **Model Download:** Lần đầu chạy cần internet để tải embedding model, có thể gây timeout.
