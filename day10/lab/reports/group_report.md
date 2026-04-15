@@ -1,16 +1,14 @@
 # Báo Cáo Nhóm — Lab Day 10: Data Pipeline & Data Observability
 
-**Tên nhóm:** ___________  
+**Tên nhóm:** X03  
 **Thành viên:**
 | Tên | Vai trò (Day 10) | Email |
 |-----|------------------|-------|
-| ___ | Ingestion / Raw Owner | ___ |
-| ___ | Cleaning & Quality Owner | ___ |
-| ___ | Embed & Idempotency Owner | ___ |
-| ___ | Monitoring / Docs Owner | ___ |
+| Admin | Ingestion & Quality Owner | admin@example.com |
+| X03_Member | Embed & Docs Owner | x03@example.com |
 
-**Ngày nộp:** ___________  
-**Repo:** ___________  
+**Ngày nộp:** 2026-04-15  
+**Repo:** https://github.com/huanvu05/X03_C401-Day-08-09-10  
 **Độ dài khuyến nghị:** 600–1000 từ
 
 ---
@@ -26,12 +24,10 @@
 > Nguồn raw là gì (CSV mẫu / export thật)? Chuỗi lệnh chạy end-to-end? `run_id` lấy ở đâu trong log?
 
 **Tóm tắt luồng:**
-
-_________________
+Pipeline thực hiện đọc dữ liệu thô từ CSV, gán `run_id`, áp dụng các quy tắc làm sạch (Cleaning) và kiểm định (Quality). Dữ liệu sạch được nạp vào ChromaDB với cơ chế Upsert + Pruning để đảm bảo không bị trùng lặp. Cuối cùng, hệ thống kiểm tra tính Freshness để cảnh báo nếu dữ liệu quá cũ.
 
 **Lệnh chạy một dòng (copy từ README thực tế của nhóm):**
-
-_________________
+`python etl_pipeline.py run --run-id official_sprint2_fixed`
 
 ---
 
@@ -41,17 +37,18 @@ _________________
 
 ### 2a. Bảng metric_impact (bắt buộc — chống trivial)
 
-| Rule / Expectation mới (tên ngắn) | Trước (số liệu) | Sau / khi inject (số liệu) | Chứng cứ (log / CSV / commit) |
-|-----------------------------------|------------------|-----------------------------|-------------------------------|
-| … | … | … | … |
+| Rule / Expectation mới | Trước (số liệu) | Sau / khi inject (số liệu) | Chứng cứ (log / CSV / commit) |
+|-------------------------|-----------------|---------------------------|-------------------------------|
+| `chunk_too_short` | 0 | 1 record quarantined | `artifacts/quarantine/..._fixed.csv` |
+| `stripped_html` | 0 | 1 record cleaned (tag added) | `artifacts/cleaned/..._fixed.csv` |
+| `redacted_pii` | 0 | 1 record redacted (email removed) | `artifacts/cleaned/..._fixed.csv` |
 
 **Rule chính (baseline + mở rộng):**
-
-- …
+- **Baseline:** Harmonize `effective_date`, Allowlist `doc_id`, Fix stale refund window (14d -> 7d).
+- **Mở rộng:** Loại bỏ HTML tags, Ẩn thông tin PII (Email), Loại bỏ các chunk quá ngắn (<15 ký tự).
 
 **Ví dụ 1 lần expectation fail (nếu có) và cách xử lý:**
-
-_________________
+Trong lần chạy `official_sprint2`, expectation `chunk_min_length_8` bị FAIL (hệ thống chỉ WARN). Sau khi sửa logic đưa rule lọc chunk ngắn lên trước, ở lần chạy `fixed`, dữ liệu rác này đã bị đưa vào Quarantine, giúp Expectation PASS.
 
 ---
 

@@ -1,7 +1,7 @@
 # Quality report — Lab Day 10 (nhóm)
 
-**run_id:** _______________  
-**Ngày:** _______________
+**run_id:** 
+**Ngày:** 15/04/2026
 
 ---
 
@@ -9,9 +9,9 @@
 
 | Chỉ số | Trước | Sau | Ghi chú |
 |--------|-------|-----|---------|
-| raw_records | | | |
-| cleaned_records | | | |
-| quarantine_records | | | |
+| raw_records | 10 | | |
+| cleaned_records | 6 | | |
+| quarantine_records | 4 | | |
 | Expectation halt? | | | |
 
 ---

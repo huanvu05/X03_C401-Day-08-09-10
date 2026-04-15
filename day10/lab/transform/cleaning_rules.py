@@ -25,7 +25,9 @@ ALLOWED_DOC_IDS = frozenset(
 
 _ISO_DATE = re.compile(r"^\d{4}-\d{2}-\d{2}$")
 _DMY_SLASH = re.compile(r"^(\d{2})/(\d{2})/(\d{4})$")
-
+_EMAIL_PATTERN = re.compile(r"[\w\.-]+@[\w\.-]+\.\w+")
+_HTML_TAGS_PATTERN = re.compile(r"<[^>]+>")
+MIN_CHUNK_LENGTH = 15 # Số ký tự tối thiểu để chunk có ý nghĩa
 
 def _norm_text(s: str) -> str:
     return " ".join((s or "").strip().split()).lower()
@@ -129,6 +131,31 @@ def clean_rows(
                     "7 ngày làm việc",
                 )
                 fixed_text += " [cleaned: stale_refund_window]"
+
+        # --- BẮT ĐẦU 3 RULES MỚI CỦA SINH VIÊN ---
+
+        # RULE 1: Drop Under-length Chunks (Lọc chunk quá ngắn/vô nghĩa)
+        # metric_impact: Cải thiện Information Density Score của Vector DB. Giảm thiểu rác/noise khi RAG retrieve.
+        if len(fixed_text.strip()) < MIN_CHUNK_LENGTH:
+            quarantine.append({**raw, "reason": "chunk_too_short", "text_length": len(fixed_text)})
+            continue
+
+        # RULE 2: Strip HTML/XML Tags (Làm sạch các tag thừa từ tool export cũ)
+        # metric_impact: Tăng Text Quality / Cleanliness Metric. Tiết kiệm lượng token dư thừa (Token usage) khi đẩy vào LLM.
+        if "<" in fixed_text and ">" in fixed_text:
+            cleaned_text = _HTML_TAGS_PATTERN.sub(" ", fixed_text)
+            cleaned_text = " ".join(cleaned_text.split()) # Xoá khoảng trắng thừa
+            if fixed_text != cleaned_text:
+                fixed_text = cleaned_text + " [cleaned: stripped_html]"
+
+        # RULE 3: Redact PII (Xoá địa chỉ Email nội bộ/khách hàng lẫn trong text)
+        # metric_impact: Compliance / Data Privacy Metric (0% PII leak). Tránh đưa dữ liệu nhạy cảm của khách hàng/nhân viên vào VectorDB.
+        if "@" in fixed_text:
+            redacted_text = _EMAIL_PATTERN.sub("[REDACTED_EMAIL]", fixed_text)
+            if fixed_text != redacted_text:
+                fixed_text = redacted_text + " [cleaned: redacted_pii]"
+
+        # --- KẾT THÚC 3 RULES MỚI ---
 
         seq += 1
         cleaned.append(
