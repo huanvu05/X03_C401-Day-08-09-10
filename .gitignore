@@ -9,4 +9,3 @@ day10/lab/data/grading_questions.json
 .env
 chroma_db
 __pycache__
-artifacts
